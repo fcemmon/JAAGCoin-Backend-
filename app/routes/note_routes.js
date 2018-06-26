@@ -1,128 +1,139 @@
-var eth = require('../eth.js')
+var eth = require('../eth.js');
+var addressService = require('../services/address.service');
 
 module.exports = function(app, db) {
   app.post('/wallet/create', (req, res) => {
-  	eth.newAccount().then(function(value) {
-  		var response = {};
-  		response.status = true;
-  		var data = {};
-  		data.address = value.address;
-  		data.privateKey = value.privateKey;
-  		response.data = data;
-  		res.send(response)
-  	}, function(error) {
-  		var response = {};
-  		response.status = false;
-  		response.message = error;
-  		res.send(response);
-  	});
+    eth.newAccount().then(function(value) {
+      var data = {};
+      data.address = value.address;
+      data.privateKey = value.privateKey;
+      addressService.create(data).then(result=>{
+        res.send({status:false, data:{id:result.id}});
+      }).catch(err => {
+        res.send({status:false, message:err.message});
+      });
+    }, function(error) {
+      var response = {};
+      response.status = false;
+      response.message = error;
+      res.send(response);
+    });
   });
-  app.post('/wallet/balances/', (req, res) => {
-  	let address = req.body.address;
-  	let contract = req.body.contract;
-  	if (!contract) {
-  		eth.getBalance(address).then(function(value) {
-	  		var response = {};
-	  		response.status = true;
-	  		response.data = value;
-	  		res.send(response);
-	  	}, function(error) {
-	  		var response = {};
-	  		response.status = false;
-	  		response.message = error;
-	  		res.send(response);
-	  	});
-	} else {
-		eth.getTokenBalance(address, contract).then(function(value) {
-	  		var response = {};
-	  		response.status = true;
-	  		response.data = value;
-	  		res.send(response);
-	  	}, function(error) {
-	  		var response = {};
-	  		response.status = false;
-	  		response.message = error;
-	  		res.send(response);
-	  	})
-	}
+  app.post('/wallet/balances', (req, res) => {
+    let id = req.body.id;
+    let contract = req.body.contract;
+    addressService.getAddressbyID(id).then(result=>{
+      let address = result.address;
+      if (!contract) {
+        eth.getBalance(address).then(function(value) {
+          var response = {};
+          response.status = true;
+          response.data = value;
+          res.send(response);
+        }, function(error) {
+          var response = {};
+          response.status = false;
+          response.message = error;
+          res.send(response);
+        });
+      } else {
+        eth.getTokenBalance(address, contract).then(function(value) {
+          var response = {};
+          response.status = true;
+          response.data = value;
+          res.send(response);
+        }, function(error) {
+          var response = {};
+          response.status = false;
+          response.message = error;
+          res.send(response);
+        })
+      }
+    });
   });
   app.post('/transaction/list', (req, res) => {
-  	let address = req.body.address;
-  	eth.listTransactionsByAddress(address).then(function(value) {
-  		var response = {};
-  		response.status = true;
-  		response.data = value;
-  		res.send(response);
-  	}, function(error) {
-  		var response = {};
-  		response.status = false;
-  		response.message =error;
-  		res.send(response);
-  	})
-  });
+    let id = req.body.id;
+    let contract = req.body.contract;    
+    addressService.getAddressbyID(id).then(result => {
+      if (!contract) {
+        eth.listTransactionsByAddress(result.address).then(function(value) {
+          res.send({status:true, data:value});
+        }, function(error) {
+          res.send({status:false, message:error});
+        })
+      } else {
+        eth.listTokenTransactionsByAddress(result.address, contract).then(value => {
+          res.send({status:true, data:value});
+        }).catch(err => {
+          res.send({status:true, message:err});
+        });
+      }
+    }).catch(err => {
+      res.send({status:false, message:err.message});
+    });
+  })
   app.post('/transaction/create', (req, res) => {
-  	let privateKey = req.body.privateKey;
-  	let from = req.body.from;
-  	let to = req.body.to;
-  	let amount = req.body.amount;
-  	let contract = req.body.contract;
+    let from = req.body.from;
+    let to = req.body.to;
+    let amount = req.body.amount;
+    let contract = req.body.contract;
 
-  	if (!contract) {
-  		eth.transfer(privateKey, from, to, amount).then(function(value) {
-	  		var response = {};
-	  		response.status = true;
-	  		response.data = value;
-	  		res.send(response);
-	  	}, function(error) {
-	  		var response = {};
-	  		response.status = false;
-	  		response.message = error;
-	  		res.send(response);
-	  	});
-  	} else {
-  		eth.transfer(privateKey, from, to, amount, contract).then(function(value) {
-	  		var response = {};
-	  		response.status = true;
-	  		response.data = value;
-	  		res.send(response);
-	  	}, function(error) {
-	  		var response = {};
-	  		response.status = false;
-	  		response.message = error;
-	  		res.send(response);
-	  	})
-  	}
+    addressService.getAddressbyID(from).then(result1 => {
+      let fromAddress =result1.address;
+      let privateKey = result1.privateKey;
+      addressService.getAddressbyID(to).then(result2 => {
+        let toAddress = result2.address;
+        if (!contract) {
+          eth.transfer(privateKey, fromAddress, toAddress, amount).then(value => {
+            res.send({status:true, data:value});
+          }).catch(error => {
+            res.send({status:false, message:error});
+          })
+        } else {
+          eth.transferToken(privateKey, fromAddress, toAddress, amount, contract).then(value => {
+            res.send({status:true, data:value});
+          }).catch(error => {
+            console.log("error");
+            res.send({status:false, message:error});
+          })
+        }
+      }).catch(err => {
+        res.send({status:false, message:err.message});
+      })
+    }).catch(err => {
+      res.send({status:false, message:err.message});
+    })
   });
   app.post('/contract/rate/view', (req, res) => {
-  	let contract = req.body.contract;
+    let contract = req.body.contract;
 
-  	eth.getRate(contract).then(function(value) {
-  		var response = {};
-  		response.status = true;
-  		response.data = value;
-  		res.send(response);
-  	}, function(error) {
-  		var response = {};
-  		response.status = false;
-  		response.message = error;
-  		res.send(response);
-  	});
+    eth.getRate(contract).then(function(value) {
+      var response = {};
+      response.status = true;
+      response.data = value;
+      res.send(response);
+    }, function(error) {
+      var response = {};
+      response.status = false;
+      response.message = error;
+      res.send(response);
+    });
   });
   app.post('/contract/rate/update', (req, res) => {
-  	let contract = req.body.contract;
-  	let rate = req.body.rate;
+    let contract = req.body.contract;
+    let rate = req.body.rate;
 
-  	eth.getRate(rate, contract).then(function(value) {
-  		var response = {};
-  		response.status = true;
-  		response.data = rate;
-  		res.send(response);
-  	}, function(error) {
-  		var response = {};
-  		response.status = false;
-  		response.message = error;
-  		res.send(response);
-  	})
+    eth.getRate(rate, contract).then(function(value) {
+      var response = {};
+      response.status = true;
+      response.data = rate;
+      res.send(response);
+    }, function(error) {
+      var response = {};
+      response.status = false;
+      response.message = error;
+      res.send(response);
+    })
   });
 };
 
@@ -139,17 +150,6 @@ module.exports = function(app, db) {
 //       } 
 //     });
 //   });
-// app.post('/notes', (req, res) => {
-//     const note = { text: req.body.body, title: req.body.title };
-//     db.collection('notes').insert(note, (err, result) => {
-//       if (err) { 
-//         res.send({ 'error': 'An error has occurred' }); 
-//       } else {
-//         res.send(result.ops[0]);
-//       }
-//     });
-//   });
-// };
 
 // app.delete('/notes/:id', (req, res) => {
 //     const id = req.params.id;

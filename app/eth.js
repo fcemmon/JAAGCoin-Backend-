@@ -6,13 +6,13 @@ var web3 = new Web3();
 var Tx = require('ethereumjs-tx');
 
 const GAS_PRICE = 10000000000;
-const GAS_LIMIT = 100000;
+const GAS_LIMIT = 2900000;
 
 // import smart contracts
 var sERC20ABI = require('./abi/jaagcoin'); // NEXT Token
 
 // web3.setProvider(new web3.providers.HttpProvider(config.nodeServer.eth));
-web3.setProvider(new web3.providers.HttpProvider("https://mainnet.infura.io/swptqj6853hAYSLLRyPz"));
+web3.setProvider(new web3.providers.HttpProvider("https://mainnet.infura.io/7RFrm0ob5vb1HliXG94v"));
 // web3.eth.extend({
 //   property: 'txpool',
 //   methods: [{
@@ -158,7 +158,7 @@ function listTransactionsByAddress(addr) {
 	// }
 
 	// let url = "https://api.etherscan.io/api?module=account&action=txlist&address=" + addr + "&startblock=0&endblock=99999999&page=" + pagenum + "&offset=" + limit + "&sort=desc&apikey=VG4EJ7WXR5P5SYPD5466QNRKEFV7T423WA"
-	let url = "https://api.etherscan.io/api?module=account&action=txlist&address=" + addr + "&startblock=0&endblock=99999999&page=1&offset=1000&sort=desc&apikey=VG4EJ7WXR5P5SYPD5466QNRKEFV7T423WA"
+	let url = "http://api.etherscan.io/api?module=account&action=txlist&address=" + addr + "&startblock=0&endblock=99999999&page=1&offset=1000&sort=desc&apikey=VG4EJ7WXR5P5SYPD5466QNRKEFV7T423WA"
 	request({
 		uri: url,
 		method: "GET",
@@ -171,8 +171,8 @@ function listTransactionsByAddress(addr) {
 				r_txs = JSON.parse(body);
 				if (Array.isArray(r_txs.result) && r_txs.result.length > 0) {
 					_.each(r_txs.result, (tx) => {
-						let amount = parseFloat(tx.value) / 1e3;
-						let fee = parseFloat(tx.gasUsed) * parseFloat(tx.gasPrice) / 1e3;
+						let amount = parseFloat(tx.value) / 1e18;
+						let fee = parseFloat(tx.gasUsed) * parseFloat(tx.gasPrice) / 1e18;
 						let sender_amount = amount + fee;
 						if (tx.to.toLowerCase() == addr.toLowerCase()) {
 							return_txs.push({
@@ -206,14 +206,14 @@ function getTokenBalance(address, contractAddress) {
 		deferred.reject('Invalid Address!');
 	}
 	let tokenContract = null;
-	let tokenDecimals = 3;
+	let tokenDecimals = 18;
 	try {
 		_getABI(contractAddress).then(function(contractABI) {
 			tokenContract = new web3.eth.Contract(contractABI, contractAddress);
 			if (typeof tokenContract.methods.decimals == 'function') {
 				return tokenContract.methods.decimals().call();
 			} else {
-				return 3;
+				return 18;
 			}
 		}).then(function(decimals) {
 			tokenDecimals = parseFloat(decimals);
@@ -249,12 +249,12 @@ function transferToken(pk, fromAddress, toAddress, p_amount, contractAddress) {
 				if (typeof tokenContract.methods.decimals == 'function') {
 					return tokenContract.methods.decimals().call();
 				} else {
-					return 3;
+					return 18;
 				}
 			}
 		}).then(function(decimals) {
 			// tokenDecimals = parseFloat(decimals);
-			let amount = parseFloat(web3.utils.toWei(p_amount.toString())) * Math.pow(10, parseFloat(decimals)) / 1e3;
+			let amount = parseFloat(web3.utils.toWei(p_amount.toString())) * Math.pow(10, parseFloat(decimals)) / 1e18;
 			amount = "0x" + amount.toString(16);
 			tx_data = tokenContract.methods.transfer(toAddress, web3.utils.toBN(amount)).encodeABI();
 			return web3.eth.getTransactionCount(fromAddress);
@@ -269,7 +269,6 @@ function transferToken(pk, fromAddress, toAddress, p_amount, contractAddress) {
 				data: tx_data
 			});
 		}).then(function(estimated_gas_limit) {
-			
 			let rawTx = {
 				nonce: tx_nonce,
 				gasPrice: web3.utils.toBN(tx_gas_price),
@@ -309,7 +308,7 @@ function listTokenTransactionsByAddress(address, contract_address) {
 	let deferred = Q.defer();
 	let return_txs = [];
 
-	let url = "https://api.etherscan.io/api?module=account&action=txlist&address=" + contract_address + "&startblock=0&endblock=99999999&page=1&offset=1000&sort=desc&apikey=VG4EJ7WXR5P5SYPD5466QNRKEFV7T423WA"
+	let url = "http://api.etherscan.io/api?module=account&action=tokentx&address=" + address + "&startblock=0&endblock=99999999&page=1&offset=1000&sort=desc&apikey=VG4EJ7WXR5P5SYPD5466QNRKEFV7T423WA"
 	request({
 		uri: url,
 		method: "GET",
@@ -325,7 +324,7 @@ function listTokenTransactionsByAddress(address, contract_address) {
 						let tx_input = tx.input;
 						let tx_method_id = tx_input.substring(0, 10);
 						let tx_receiver = tx_input.substring(10, 74);
-						let amount = parseInt(tx_input.substring(74), 16) / 1e3;
+						let amount = parseInt(tx_input.substring(74), 16) / 1e18;
 
 						// let r_address = address.substring(2)
 
@@ -350,14 +349,14 @@ function listTokenTransactionsByAddress(address, contract_address) {
 function getRate(contractAddress) {
 	let deferred = Q.defer();
 	let tokenContract = null;
-	let tokenDecimals = 3;
+	let tokenDecimals = 18;
 	try {
 		_getABI(contractAddress).then(function(contractABI) {
 			tokenContract = new web3.eth.Contract(contractABI, contractAddress);
 			if (typeof tokenContract.methods.decimals == 'function') {
 				return tokenContract.methods.decimals().call();
 			} else {
-				return 3;
+				return 18;
 			}
 		}).then(function(decimals) {
 			tokenDecimals = parseFloat(decimals);
@@ -376,14 +375,14 @@ function getRate(contractAddress) {
 function setRate(p_rate, contractAddress) {
 	let deferred = Q.defer();
 	let tokenContract = null;
-	let tokenDecimals = 3;
+	let tokenDecimals = 18;
 	try {
 		_getABI(contractAddress).then(function(contractABI) {
 			tokenContract = new web3.eth.Contract(contractABI, contractAddress);
 			if (typeof tokenContract.methods.decimals == 'function') {
 				return tokenContract.methods.decimals().call();
 			} else {
-				return 3;
+				return 18;
 			}
 		}).then(function(decimals) {
 			tokenDecimals = parseFloat(decimals);
@@ -401,8 +400,9 @@ function setRate(p_rate, contractAddress) {
 
 function _getABI(contract_address) {
 	let deferred = Q.defer();
+	deferred.resolve(sERC20ABI);
 
-	let url = "https://api.etherscan.io/api?module=contract&action=getabi&address=" + contract_address;
+	let url = "http://api.etherscan.io/api?module=contract&action=getabi&address=" + contract_address;
 	request({
 		uri: url,
 		method: "GET",
