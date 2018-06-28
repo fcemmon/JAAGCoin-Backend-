@@ -8,6 +8,7 @@ var service = {};
 service.create = create;
 service.update = update;
 service.getAddressbyID = getAddressbyID;
+service.getAddressByAddress = getAddressByAddress;
 
 module.exports = service;
 
@@ -45,6 +46,22 @@ function getAddressbyID(id) {
 	var deferred = Q.defer();
 
 	Address.findOne(new ObjectId(id), function(err, address) {
+		if (err) {
+			deferred.reject(err);
+		} else if (address) {
+			deferred.resolve(address);
+		} else {
+			deferred.reject({message: "Address not found!"});
+		}
+	});
+
+	return deferred.promise;
+}
+
+function getAddressByAddress(data) {
+	var deferred = Q.defer();
+
+	Address.findOne({address:data}, function(err, address) {
 		if (err) {
 			deferred.reject(err);
 		} else if (address) {
