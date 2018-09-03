@@ -8,7 +8,7 @@ var service = {};
 service.create = create;
 service.update = update;
 service.getAddressbyID = getAddressbyID;
-service.getAddressByAddress = getAddressByAddress;
+service.getAddressbyWalletID = getAddressbyWalletID;
 
 module.exports = service;
 
@@ -58,9 +58,8 @@ function getAddressbyID(id) {
 	return deferred.promise;
 }
 
-function getAddressByAddress(data) {
+function getAddressbyWalletID(data) {
 	var deferred = Q.defer();
-
 	Address.findOne({address:data}, function(err, address) {
 		if (err) {
 			deferred.reject(err);

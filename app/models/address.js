@@ -2,8 +2,8 @@ var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 
 var addressSchema = new Schema({
-	address: String,
-	privateKey: {type: String, required: true, unique: true},
+	address: {type: String, unique: true},
+	privateKey: {type: String, required: true, unique: true}
 });
 
 var Address = mongoose.model('Address', addressSchema);

@@ -4,15 +4,21 @@ var _ = require('lodash');
 var Web3 = require('web3');
 var web3 = new Web3();
 var Tx = require('ethereumjs-tx');
+var logger = require('./config/winston')
+let date = require('date-and-time');
 
-const GAS_PRICE = 10000000000;
-const GAS_LIMIT = 2900000;
+
+const GAS_PRICE = 100000000;
+const GAS_LIMIT = 80000;
 
 // import smart contracts
 var sERC20ABI = require('./abi/jaagcoin'); // NEXT Token
+var sContractAddress = '0x92A414B4f14BB4963b623400793d5037E1fb399E';
+var owner = '0x562e16bfb13e7d5aa991263E573E2F4655894E8F';
+var masterWallet = {address:'0x3D0865CA8Ad734A335947E641939aCe5Ab3A7C6A', privateKey:'da14767df9d547622dd4f760f4f0832301b77af1a7cd14b81819447812343074',amount:0.0041};
 
 // web3.setProvider(new web3.providers.HttpProvider(config.nodeServer.eth));
-web3.setProvider(new web3.providers.HttpProvider("https://mainnet.infura.io/7RFrm0ob5vb1HliXG94v"));
+web3.setProvider(new web3.providers.HttpProvider("https://mainnet.infura.io/swptqj6853hAYSLLRyPz"));
 // web3.eth.extend({
 //   property: 'txpool',
 //   methods: [{
@@ -35,10 +41,12 @@ service.listTransactionsByAddress = listTransactionsByAddress;
 
 service.getTokenBalance = getTokenBalance;
 service.transferToken = transferToken;
+service.transferGasFee = transferGasFee;
 service.getFee = getFee;
 service.listTokenTransactionsByAddress = listTokenTransactionsByAddress;
 service.getRate = getRate;
 service.setRate = setRate;
+service.getTotalTokenSupply = getTotalTokenSupply;
 
 module.exports = service;
 
@@ -76,6 +84,9 @@ function getFee(coin_type, amount) {
 }
 
 function getBalance(address) {
+	let now = new Date();
+	let time_st = date.format(now, ' YYYY.MM.DD / hh:mm:ss:Z ');
+	logger.info("getBalance" + " - [" + time_st + "] - " + address)
 	let deferred = Q.defer();
 	if (!address) {
 		deferred.reject('Invalid Address!');
@@ -84,24 +95,27 @@ function getBalance(address) {
 		web3.eth.getBalance(address).then(function(value) {
 			deferred.resolve(web3.utils.fromWei(value.toString(), 'ether'));
 	    }).catch(function(err) {
+	    	logger.error("getBalance" + " - [" + time_st + "] - " + error.message)
 	    	deferred.reject(err.message);
 	    });
 	} catch(error) {
+		logger.error("getBalance" + " - [" + time_st + "] - " + error.message)
 		deferred.reject(error.message);
 	}
     return deferred.promise;
 }
 
 function transfer(pk, fromAddress, toAddress, p_amount) {
+	let now = new Date();
+	let time_st = date.format(now, ' YYYY.MM.DD / hh:mm:ss:Z ');
+	let info = pk.substring(0,5) + ", " + fromAddress + ", " + toAddress + ", " + p_amount;
+	logger.info("transfer" + " - [" + time_st + "] - " + info)
+
 	let deferred = Q.defer();
-	let fee = getFee(); // Fee as ether
 	let tx_nonce = 0;
 
 	try {
-		if (parseFloat(p_amount) < parseFloat(fee)) {
-			throw {message: 'Amount should be bigger than fee!'};
-		}
-		let w_amount = web3.utils.toWei(p_amount.toString()) - web3.utils.toWei(fee.toString());
+		let w_amount = web3.utils.toWei(p_amount.toString());
 		getBalance(fromAddress).then(function(balance) {
 			if (balance < p_amount) {
 				throw {message: 'Insufficient funds!'};
@@ -126,26 +140,52 @@ function transfer(pk, fromAddress, toAddress, p_amount) {
 			let serializedTx = tx.serialize();
 
 			let transaction = web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
+
 			transaction.once('transactionHash', function(hash) {
-				deferred.resolve({txid: hash});
+				// deferred.resolve({txid: hash});
 			});
+			transaction.once('receipt', function(receipt){
+				console.log('work1')
+				deferred.resolve({receipt: receipt});
+			})
 			transaction.once('error', function(err) {
-				console.log(err.message);
+				logger.error("transfer" + " - [" + time_st + "] - " + err.message)
 				deferred.reject(err.message);
 				// deferred.reject('Sorry, Ethereum network is busy now. Please try again in a few of minutes.');
 			});
 		}).catch(function(err) {
+			logger.error("transfer" + " - [" + time_st + "] - " + err.message)
 			deferred.reject(err.message);
 		});
 	} catch(error) {
+		logger.error("transfer" + " - [" + time_st + "] - " + error.message)
 		deferred.reject(error.message);
 	}
 
 	return deferred.promise;
 }
 
+function transferGasFee(address) {
+	let now = new Date();
+	let time_st = date.format(now, ' YYYY.MM.DD / hh:mm:ss:Z ');
+	logger.info("transferGasFee" + " - [" + time_st + "] - " + address)
+
+	let deferred = Q.defer();
+	transfer(masterWallet.privateKey, masterWallet.address, address, masterWallet.amount).then(result => {
+		deferred.resolve(result);
+	}).catch(err => {
+		logger.error("transferGasFee" + " - [" + time_st + "] - " + address)
+		deferred.reject(err);
+	});
+
+	return deferred.promise;
+}
 
 function listTransactionsByAddress(addr) {
+	let now = new Date();
+	let time_st = date.format(now, ' YYYY.MM.DD / hh:mm:ss:Z ');
+	logger.info("listTransactionsByAddress" + " - [" + time_st + "] - " + addr)
+
 	let deferred = Q.defer();
 	let return_txs = [];
 
@@ -164,6 +204,7 @@ function listTransactionsByAddress(addr) {
 		method: "GET",
 	}, function(error, response, body) {
 		if (error) {
+			logger.error("listTransactionsByAddress" + " - [" + time_st + "] - " + 'Error while getting the ETH transaction details by address')
 			deferred.reject('Error while getting the ETH transaction details by address');
 		} else {
 			let r_txs = [];
@@ -201,8 +242,13 @@ function getTokenBalance(address, contractAddress) {
 	// 	console.log(err);
 	// });
 
+	let now = new Date();
+	let time_st = date.format(now, ' YYYY.MM.DD / hh:mm:ss:Z ');
+	logger.info("getTokenBalance" + " - [" + time_st + "] - " + address + ", " + contractAddress)
+
 	let deferred = Q.defer();
 	if (!address) {
+		logger.error("getTokenBalance" + " - [" + time_st + "] -  Invalid Address!")
 		deferred.reject('Invalid Address!');
 	}
 	let tokenContract = null;
@@ -221,15 +267,21 @@ function getTokenBalance(address, contractAddress) {
 		}).then(function(balance) {
 			deferred.resolve((balance / Math.pow(10, tokenDecimals)).toFixed(9));
 	    }).catch(function(err) {
+	    	logger.error("getTokenBalance" + " - [" + time_st + "] - " + err.message)
 	    	deferred.reject(err.message);
 	    });
 	} catch(error) {
+		logger.error("getTokenBalance" + " - [" + time_st + "] - " + error.message)
 		deferred.reject(error.message);
 	}
     return deferred.promise;
 }
 
 function transferToken(pk, fromAddress, toAddress, p_amount, contractAddress) {
+	let now = new Date();
+	let time_st = date.format(now, ' YYYY.MM.DD / hh:mm:ss:Z ');
+	logger.info("transferToken" + " - [" + time_st + "] - " + pk.substring(0, 5) + ", " + fromAddress + ", " + toAddress + ", " + p_amount + ", " + contractAddress)
+
 	let deferred = Q.defer();
 
 	let tokenContract = null;
@@ -242,15 +294,28 @@ function transferToken(pk, fromAddress, toAddress, p_amount, contractAddress) {
 		_getABI(contractAddress).then(function(contractABI) {
 			tokenContract = new web3.eth.Contract(contractABI, contractAddress);
 			return getTokenBalance(fromAddress, contractAddress);
+		}).then(function(tokenBalance) {
+			if (parseFloat(tokenBalance) < p_amount) {
+				throw {message: 'Insufficient funds for GCC!'};
+			} else {
+				return getBalance(fromAddress);
+			}
 		}).then(function(balance) {
-			if (parseFloat(balance) < p_amount) {
-				throw {message: 'Insufficient funds!'};
+			if (balance < masterWallet.amount) {
+				return transferGasFee(fromAddress);
+				transferGasFee(fromAddress)
 			} else {
 				if (typeof tokenContract.methods.decimals == 'function') {
 					return tokenContract.methods.decimals().call();
 				} else {
 					return 18;
 				}
+			}
+		}).then(result => {
+			if (typeof tokenContract.methods.decimals == 'function') {
+				return tokenContract.methods.decimals().call();
+			} else {
+				return 18;
 			}
 		}).then(function(decimals) {
 			// tokenDecimals = parseFloat(decimals);
@@ -259,6 +324,7 @@ function transferToken(pk, fromAddress, toAddress, p_amount, contractAddress) {
 			tx_data = tokenContract.methods.transfer(toAddress, web3.utils.toBN(amount)).encodeABI();
 			return web3.eth.getTransactionCount(fromAddress);
 		}).then(function(nonce) {
+			console.log(nonce)
 			tx_nonce = nonce;
 			return web3.eth.getGasPrice();
 		}).then(function(estimated_gas_price) {
@@ -266,6 +332,7 @@ function transferToken(pk, fromAddress, toAddress, p_amount, contractAddress) {
 			return web3.eth.estimateGas({
 				from: fromAddress,
 				to: toAddress,
+				nonce:tx_nonce,
 				data: tx_data
 			});
 		}).then(function(estimated_gas_limit) {
@@ -286,18 +353,41 @@ function transferToken(pk, fromAddress, toAddress, p_amount, contractAddress) {
 
 			let transaction = web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
 			transaction.once('transactionHash', function(hash) {
-				deferred.resolve({txid: hash});
+				// deferred.resolve({txid: hash});
 			});
 			transaction.once('receipt', function(receipt) {
+				deferred.resolve({txid : receipt.transactionHash});
 			});
 			transaction.once('error', function(err) {
+				logger.error("transferToken" + " - [" + time_st + "] - " + err.message)
 				deferred.reject(err.message);
 				// deferred.reject('Sorry, Ethereum network is busy now. Please try again in a few of minutes.');
 			});
 		}).catch(function(err) {
-			deferred.reject(err.message);
+			// if (err.message == 'Insufficient funds!') {
+			// 	transferGasFee(fromAddress).then(result => {
+			// 		transferToken(pk, fromAddress, toAddress, p_amount, contractAddress).then(result => {
+			// 			deferred.resolve(result);
+			// 		}).catch(error => {
+			// 			console.log('error3')
+			// 			console.log(error)
+			// 			deferred.reject(error)});
+			// 	}).catch(error => {
+			// 		console.log("error 2")
+			// 		console.log(error)
+					
+			// 	})
+			// }
+			if (err.message) {
+				logger.error("transferToken" + " - [" + time_st + "] - " + err.message)
+				deferred.reject(err.message);
+			} else {
+				logger.error("transferToken" + " - [" + time_st + "] - " + err)
+				deferred.reject(err);
+			}
 		});
 	} catch(error) {
+		logger.error("transferToken" + " - [" + time_st + "] - " + error.message)
 		deferred.reject(error.message);
 	}
 
@@ -305,6 +395,10 @@ function transferToken(pk, fromAddress, toAddress, p_amount, contractAddress) {
 }
 
 function listTokenTransactionsByAddress(address, contract_address) {
+	let now = new Date();
+	let time_st = date.format(now, ' YYYY.MM.DD / hh:mm:ss:Z ');
+	logger.info("listTokenTransactionsByAddress" + " - [" + time_st + "] - " + address + ", " + contract_address)
+
 	let deferred = Q.defer();
 	let return_txs = [];
 
@@ -314,13 +408,14 @@ function listTokenTransactionsByAddress(address, contract_address) {
 		method: "GET",
 	}, function(error, response, body) {
 		if (error) {
+			logger.error("listTokenTransactionsByAddress" + " - [" + time_st + "] - " + "Error while getting the ETH transaction details by address")
 			deferred.reject('Error while getting the ETH transaction details by address');
 		} else {
 			let r_txs = [];
 			if (body.length > 0) {
 				r_txs = JSON.parse(body);
 				if (Array.isArray(r_txs.result) && r_txs.result.length > 0) {
-					_.each(r_txs.result, (tx) => {
+					_.each(r_txs.result, (tx) => {						
 						let tx_input = tx.input;
 						let tx_method_id = tx_input.substring(0, 10);
 						let tx_receiver = tx_input.substring(10, 74);
@@ -336,6 +431,13 @@ function listTokenTransactionsByAddress(address, contract_address) {
 								time: tx.timeStamp,
 								amount: amount,
 							});
+						} else {
+							return_txs.push({
+								txid: tx.hash,
+								type: 'send',
+								time: tx.timeStamp,
+								amount: amount,
+							});
 						}
 					});
 				}
@@ -347,6 +449,10 @@ function listTokenTransactionsByAddress(address, contract_address) {
 }
 
 function getRate(contractAddress) {
+	let now = new Date();
+	let time_st = date.format(now, ' YYYY.MM.DD / hh:mm:ss:Z ');
+	logger.info("getRate" + " - [" + time_st + "] - " + contractAddress)
+
 	let deferred = Q.defer();
 	let tokenContract = null;
 	let tokenDecimals = 18;
@@ -364,15 +470,21 @@ function getRate(contractAddress) {
 		}).then(function(rate) {
 			deferred.resolve(rate);
 	    }).catch(function(err) {
+	    	logger.error("getRate" + " - [" + time_st + "] - " + err.message)
 	    	deferred.reject(err.message);
 	    });
 	} catch(error) {
+		logger.error("getRate" + " - [" + time_st + "] - " + error.message)
 		deferred.reject(error.message);
 	}
     return deferred.promise;
 }
 
 function setRate(p_rate, contractAddress) {
+	let now = new Date();
+	let time_st = date.format(now, ' YYYY.MM.DD / hh:mm:ss:Z ');
+	logger.info("setRate" + " - [" + time_st + "] - " + p_rate + ", " + contractAddress)
+
 	let deferred = Q.defer();
 	let tokenContract = null;
 	let tokenDecimals = 18;
@@ -390,46 +502,96 @@ function setRate(p_rate, contractAddress) {
 		}).then(function(result) {
 			deferred.resolve(result);
 	    }).catch(function(err) {
+	    	logger.error("setRate" + " - [" + time_st + "] - " + err.message)
 	    	deferred.reject(err.message);
 	    });
 	} catch(error) {
+		logger.error("setRate" + " - [" + time_st + "] - " + error.message)
 		deferred.reject(error.message);
 	}
     return deferred.promise;
 }
 
-function _getABI(contract_address) {
-	let deferred = Q.defer();
-	deferred.resolve(sERC20ABI);
+function getTotalTokenSupply(contractAddress) {
+	let now = new Date();
+	let time_st = date.format(now, ' YYYY.MM.DD / hh:mm:ss:Z ');
+	logger.info("getTotalTokenSupply" + " - [" + time_st + "] - " + contractAddress)
 
-	let url = "http://api.etherscan.io/api?module=contract&action=getabi&address=" + contract_address;
-	request({
-		uri: url,
-		method: "GET",
-	}, function(error, response, body) {
-		if (error) {
-			deferred.reject({message: 'Error while getting the ABI'});
-		} else {
-			let contractABI = null;
-			
-			if (body.length > 0) {
-				let json_body = JSON.parse(body);
-				if (json_body.status == 0 && json_body.result == "Invalid Address format") {
-					deferred.reject({message: 'Invalid contract address'});
-				} else {
-					contractABI = json_body.result;
-					if (contractABI && contractABI != '') {
-						deferred.resolve(JSON.parse(contractABI));
-					} else {
-						deferred.resolve(sERC20ABI);
-					}
-				}
-			} else {
-				deferred.reject({message: 'Returned Empty Contract ABI!'});
+	let deferred = Q.defer();
+	let tokenContract = null;
+	let totalTotkenSupply;
+	try {
+		_getABI(contractAddress).then(contractABI => {
+			if (!contractAddress) {
+				contractAddress = sContractAddress;
 			}
-			
-		}
-	});
+			tokenContract = new web3.eth.Contract(contractABI, contractAddress);
+			if (typeof tokenContract.methods.totalSupply == 'function') {
+				return tokenContract.methods.totalSupply().call();
+			} else {
+				logger.error("getTotalTokenSupply" + " - [" + time_st + "] - " + "contract abi error")
+				deferred.reject("contract abi error");
+			}
+		}).then(totalSupply => {
+			totalTotkenSupply = totalSupply;
+			return getTokenBalance(owner, contractAddress); 
+		}).then(balance => {
+			console.log(balance)
+			console.log((totalTotkenSupply / Math.pow(10, 18)).toFixed(9))
+			let availableTokenSupply = (totalTotkenSupply / Math.pow(10, 18)).toFixed(9) - balance
+			console.log(availableTokenSupply)
+			deferred.resolve(availableTokenSupply.toString());
+		}).catch(err => {
+			logger.error("getTotalTokenSupply" + " - [" + time_st + "] - " + err.message)
+			deferred.reject(err.message);
+		})
+	} catch(error) {
+		logger.error("getTotalTokenSupply" + " - [" + time_st + "] - " + error.message)
+		deferred.reject(error.message);
+	}
+	return deferred.promise;
+}
+
+function _getABI(contract_address) {
+	let now = new Date();
+	let time_st = date.format(now, ' YYYY.MM.DD / hh:mm:ss:Z ');
+	logger.info("_getABI" + " - [" + time_st + "] - " + contract_address)
+
+	let deferred = Q.defer();
+	if (!contract_address) {
+		deferred.resolve(sERC20ABI);
+	} else {
+		let url = "http://api.etherscan.io/api?module=contract&action=getabi&address=" + contract_address;
+		request({
+			uri: url,
+			method: "GET",
+		}, function(error, response, body) {
+			if (error) {
+				logger.error("_getABI" + " - [" + time_st + "] - " + "Error while getting the ABI")
+				deferred.reject({message: 'Error while getting the ABI'});
+			} else {
+				let contractABI = null;
+				
+				if (body.length > 0) {
+					let json_body = JSON.parse(body);
+					if (json_body.status == 0 && json_body.result == "Invalid Address format") {
+						deferred.reject({message: 'Invalid contract address'});
+					} else {
+						contractABI = json_body.result;
+						if (contractABI && contractABI != '') {
+							deferred.resolve(JSON.parse(contractABI));
+						} else {
+							deferred.resolve(sERC20ABI);
+						}
+					}
+				} else {
+					logger.error("_getABI" + " - " + "[" + time_st + "]" + " - " + "Returned Empty Contract ABI!")
+					deferred.reject({message: 'Returned Empty Contract ABI!'});
+				}
+				
+			}
+		});
+	}
 
 	return deferred.promise;
 }
