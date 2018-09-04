@@ -1,4 +1,5 @@
 var eth = require('../eth.js');
+var neo = require('../neo.js');
 var addressService = require('../services/address.service');
 var hashService = require('../services/hash.service');
 var authService = require('../services/auth.service');
@@ -18,6 +19,15 @@ module.exports = function(app, db) {
       res.send(result);
     })
   })
+  app.post('/neo/wallet/create', (req, res) => {
+    if (authService.checkAuth(req)) {
+      neo.newAccount().then(value => {
+        res.send(value);
+      }).catch(err => {
+        res.send('failed');
+      })
+    }
+  });
   app.post('/wallet/create', (req, res) => {
     if (authService.checkAuth(req)) {
       eth.newAccount().then(function(value) {

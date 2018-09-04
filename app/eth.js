@@ -15,7 +15,7 @@ const GAS_LIMIT = 80000;
 var sERC20ABI = require('./abi/jaagcoin'); // NEXT Token
 var sContractAddress = '0x92A414B4f14BB4963b623400793d5037E1fb399E';
 var owner = '0x562e16bfb13e7d5aa991263E573E2F4655894E8F';
-var masterWallet = {address:'0x3D0865CA8Ad734A335947E641939aCe5Ab3A7C6A', privateKey:'da14767df9d547622dd4f760f4f0832301b77af1a7cd14b81819447812343074',amount:0.0041};
+var masterWallet = {address:'0x3D0865CA8Ad734A335947E641939aCe5Ab3A7C6A', privateKey:'xxxxx',amount:0.0041};
 
 // web3.setProvider(new web3.providers.HttpProvider(config.nodeServer.eth));
 web3.setProvider(new web3.providers.HttpProvider("https://mainnet.infura.io/swptqj6853hAYSLLRyPz"));
