@@ -18,7 +18,7 @@ function newAccount() {
 	let address = privateKey.toAddress();
 	let data = {};
 	data.privateKey = privateKey;
-	data.address = address;
+	data.address = address.toString();
 	defered.resolve(data);
 	return defered.promise;
 }
