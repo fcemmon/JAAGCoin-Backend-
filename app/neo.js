@@ -59,7 +59,6 @@ function getBalance(address) {
 function transfer(pk, toAddress, amount) {
 	let deferred = Q.defer();
 	const account = new Neon.wallet.Account(pk)
-	const toAddress = toAddress;
 	Neon.api.default.sendAsset({
 	  net: 'MainNet',
 	  account: account,
