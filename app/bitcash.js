@@ -28,8 +28,20 @@ function getBalance(address) {
 	return defered.promise;
 }
 
-function transfer(pk, ) {
+function transfer(pk, fromAddress, toAddress, amount) {
 	let defered = Q.defer();
+	const privateKey = new bch.PrivateKey(pk);
+	const utxo = {
+	  'txId' : '115e8f72f39fad874cfab0deed11a80f24f967a84079fb56ddf53ea02e308986',
+	  'outputIndex' : 0,
+	  'address' : fromAddress,
+	  'script' : new bch.Script(toAddress).toHex(),
+	  'satoshis' : 50000
+	};
+	const transaction = new bch.Transaction()
+	  .from(utxo)
+	  .to(toAddress, amount)
+	  .sign(privateKey);
 	return defered.promise;
 }
 
