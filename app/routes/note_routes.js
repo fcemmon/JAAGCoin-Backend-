@@ -178,6 +178,26 @@ module.exports = function(app, db) {
       authService.responseError(res);
     }
   })
+  app.post('/bitcash/wallet/balances', (req, res) => {
+    if (authService.checkAuth(req)) {
+      let address = req.body.address;
+      bitcash.getBalance(address).then(value => {
+        res.send(value);
+      })
+    } else {
+      authService.responseError(res);
+    }
+  })
+  app.post('/bitcash/transaction/list', (req, res) => {
+    if (authService.checkAuth(req)) {
+      let address = req.body.address;
+      bitcash.listTransactionsByAddress(address).then(value => {
+        res.send(value);
+      })
+    } else {
+      authService.responseError(res);
+    }
+  })
   app.post('/eth/wallet/create', (req, res) => {
     if (authService.checkAuth(req)) {
       eth.newAccount().then(function(value) {
